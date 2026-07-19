@@ -6,6 +6,15 @@ Hotels category end-to-end (steps 1–7 of the spec): category selection →
 search → map view → price/guest-score filters → map zoom + pin selection →
 hotel-card validation.
 
+> [!IMPORTANT]
+> **Run the test locally to see it pass.** Simplenight staging sits behind
+> CloudFront/WAF that **blocks GitHub Actions datacenter IPs** (it returns a
+> `403` shell to the runner, so the page never loads there). Because of this,
+> the E2E test **cannot execute on GitHub-hosted CI** — it detects the block
+> and skips gracefully so the pipeline stays green. The full end-to-end run is
+> validated **locally** (see [Run](#run)); this is not a flaky test or a bug in
+> the framework.
+
 ## Why it's structured this way
 
 The assignment asks for a framework where *any* category's booking flow could
@@ -149,9 +158,18 @@ A GitHub Actions workflow (`.github/workflows/playwright.yml`) is included as
 a bonus — it is **not required** by the assignment. It always runs
 `npm run typecheck`, then attempts the Hotels E2E spec against staging.
 
-**Note:** Simplenight staging sits behind CloudFront/WAF that blocks GitHub
-Actions datacenter IPs (returns a `403` shell). When that happens the E2E test
-skips gracefully so the pipeline stays green — the primary validation path is
-the local commands in **Run** above. If E2E runs and fails, open the workflow
-run → **Artifacts** → download `playwright-report` for traces, screenshots,
-and video.
+**Why the E2E step is skipped on GitHub Actions:** Simplenight staging sits
+behind CloudFront/WAF that **blocks requests from GitHub Actions datacenter
+IPs** — the runner receives a `403` "Request blocked" shell instead of the app,
+so the SPA never renders there. The workflow therefore:
+
+1. Always runs `npm run typecheck` (fully validated on CI).
+2. Probes staging from the runner; if it returns the `403` block, the browser
+   test **skips with a clear message** instead of failing, keeping the pipeline
+   green.
+
+This is an environment/network restriction, **not** a defect in the test or a
+flaky locator. The complete steps 1–7 flow runs and passes **locally** (see
+[Run](#run)). If you run the workflow from a network that staging allows and it
+fails, open the run → **Artifacts** → download `playwright-report` for traces,
+screenshots, and video.

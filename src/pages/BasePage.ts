@@ -26,16 +26,4 @@ export abstract class BasePage {
   async waitForVisible(locator: Locator, timeout = config.defaultTimeout): Promise<void> {
     await expect(locator).toBeVisible({ timeout });
   }
-
-  /** Waits until a locator's count stabilizes (useful for async result grids). */
-  async waitForAtLeastOne(locator: Locator, timeout = config.defaultTimeout): Promise<void> {
-    await expect
-      .poll(async () => locator.count(), { timeout, message: 'Waiting for at least one matching element' })
-      .toBeGreaterThan(0);
-  }
-
-  /** Waits for any pending network activity from the SPA's data fetches to settle. */
-  async waitForNetworkIdle(timeout = config.navigationTimeout): Promise<void> {
-    await this.page.waitForLoadState('networkidle', { timeout });
-  }
 }
