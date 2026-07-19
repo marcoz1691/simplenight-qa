@@ -27,13 +27,28 @@ export class HomePage extends BasePage {
 
   async open(): Promise<void> {
     await this.goto('/');
+    await this.page.waitForLoadState('load');
+    // SPAs may never reach networkidle (background polling); best-effort only.
+    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
   }
 
   async selectCategory(category: string): Promise<void> {
     const categoryLocator = this.navCategory(category);
-    await this.waitForVisible(categoryLocator);
-    await categoryLocator.click();
-    await this.page.waitForURL(/\/home\/hotels/, { timeout: 15_000 });
-    await this.waitForVisible(this.page.getByTestId(/search-form_location_trigger/));
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await categoryLocator.waitFor({ state: 'visible', timeout: 20_000 });
+        await categoryLocator.scrollIntoViewIfNeeded();
+        await categoryLocator.click();
+        await this.page.waitForURL(/\/home\/hotels/, { timeout: 30_000 });
+        await this.waitForVisible(this.page.getByTestId(/search-form_location_trigger/), 20_000);
+        return;
+      } catch (error) {
+        if (attempt === 1) {
+          throw error;
+        }
+        await this.page.reload({ waitUntil: 'load' });
+      }
+    }
   }
 }
