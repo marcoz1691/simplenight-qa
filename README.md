@@ -146,8 +146,12 @@ All final code, design decisions, and test coverage are my reviewed work.
 ## Optional: CI
 
 A GitHub Actions workflow (`.github/workflows/playwright.yml`) is included as
-a bonus — it is **not required** by the assignment. It runs the Hotels spec
-against staging on push/PR (Chromium, single worker). The primary validation
-path is the local commands in **Run** above. If Actions fails, open the
-workflow run → **Artifacts** → download `playwright-report` for traces,
-screenshots, and video.
+a bonus — it is **not required** by the assignment. It always runs
+`npm run typecheck`, then attempts the Hotels E2E spec against staging.
+
+**Note:** Simplenight staging sits behind CloudFront/WAF that blocks GitHub
+Actions datacenter IPs (returns a `403` shell). When that happens the E2E test
+skips gracefully so the pipeline stays green — the primary validation path is
+the local commands in **Run** above. If E2E runs and fails, open the workflow
+run → **Artifacts** → download `playwright-report` for traces, screenshots,
+and video.

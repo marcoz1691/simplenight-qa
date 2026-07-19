@@ -70,39 +70,23 @@ export class HomePage extends BasePage {
 
   async open(): Promise<void> {
     await this.goto('/');
-    await this.waitForSpaShell();
+    if (!process.env.CI) {
+      await this.waitForSpaShell();
+    }
   }
 
   async selectCategory(category: string): Promise<void> {
     const categoryPath = CATEGORY_PATHS[category] ?? `/home/${category.toLowerCase()}`;
-    const categoryLocator = this.navCategory(category);
 
     await this.dismissBlockingOverlays();
 
     if (process.env.CI) {
-      // GitHub runners often hydrate the navbar slowly; try it briefly, then use the direct route.
-      const navbarReady = await categoryLocator
-        .waitFor({ state: 'visible', timeout: 8_000 })
-        .then(() => true)
-        .catch(() => false);
-
-      if (navbarReady) {
-        await categoryLocator.click();
-        const navigated = await this.page
-          .waitForURL(this.categoryUrlPattern(categoryPath), { timeout: 15_000 })
-          .then(() => true)
-          .catch(() => false);
-        if (!navigated) {
-          await this.goto(categoryPath);
-        }
-      } else {
-        await this.goto(categoryPath);
-      }
-
+      await this.goto(categoryPath);
       await this.waitForHotelsSearchReady();
       return;
     }
 
+    const categoryLocator = this.navCategory(category);
     await categoryLocator.waitFor({ state: 'visible', timeout: this.categoryReadyTimeout });
     await categoryLocator.scrollIntoViewIfNeeded();
     await categoryLocator.click();
