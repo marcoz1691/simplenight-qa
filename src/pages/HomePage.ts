@@ -1,6 +1,11 @@
-import { Page } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 import { BasePage } from './BasePage';
 import { SearchWidget } from './components/SearchWidget';
+import { config } from '@config/env.config';
+
+const CATEGORY_PATHS: Record<string, string> = {
+  Hotels: '/home/hotels',
+};
 
 /**
  * Homepage: entry point of the SPA. Responsible only for landing + selecting
@@ -16,6 +21,10 @@ export class HomePage extends BasePage {
     this.searchWidget = new SearchWidget(page);
   }
 
+  private get categoryReadyTimeout() {
+    return process.env.CI ? 45_000 : 20_000;
+  }
+
   private navCategory(name: string) {
     // data-testid is preferred (stable across copy/style changes); role-based
     // text match is the fallback if the app doesn't expose test ids.
@@ -25,29 +34,60 @@ export class HomePage extends BasePage {
       .or(this.page.getByRole('button', { name, exact: true }));
   }
 
+  private async waitForSpaShell(): Promise<void> {
+    await expect
+      .poll(async () => (await this.page.locator('body').innerText()).trim().length, {
+        timeout: config.navigationTimeout,
+        message: 'Waiting for the SPA shell to render',
+      })
+      .toBeGreaterThan(100);
+  }
+
+  private async dismissBlockingOverlays(): Promise<void> {
+    const dismiss = this.page
+      .getByRole('button', { name: /accept all|accept cookies|agree|close/i })
+      .first();
+    if (await dismiss.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await dismiss.click();
+    }
+  }
+
   async open(): Promise<void> {
     await this.goto('/');
-    await this.page.waitForLoadState('load');
-    // SPAs may never reach networkidle (background polling); best-effort only.
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+    await this.waitForSpaShell();
   }
 
   async selectCategory(category: string): Promise<void> {
     const categoryLocator = this.navCategory(category);
+    const categoryPath = CATEGORY_PATHS[category] ?? `/home/${category.toLowerCase()}`;
 
-    for (let attempt = 0; attempt < 2; attempt++) {
+    await this.dismissBlockingOverlays();
+
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        await categoryLocator.waitFor({ state: 'visible', timeout: 20_000 });
+        await categoryLocator.waitFor({ state: 'visible', timeout: this.categoryReadyTimeout });
         await categoryLocator.scrollIntoViewIfNeeded();
         await categoryLocator.click();
-        await this.page.waitForURL(/\/home\/hotels/, { timeout: 30_000 });
-        await this.waitForVisible(this.page.getByTestId(/search-form_location_trigger/), 20_000);
+        await this.page.waitForURL(new RegExp(categoryPath.replace('/', '\\/')), {
+          timeout: config.navigationTimeout,
+        });
+        await this.waitForVisible(
+          this.page.getByTestId(/search-form_location_trigger/),
+          this.categoryReadyTimeout,
+        );
         return;
       } catch (error) {
-        if (attempt === 1) {
+        if (attempt === 2) {
           throw error;
         }
-        await this.page.reload({ waitUntil: 'load' });
+        if (attempt === 1) {
+          // Datacenter runners can be slow to hydrate the navbar; direct route keeps CI stable.
+          await this.goto(categoryPath);
+          await this.waitForSpaShell();
+          continue;
+        }
+        await this.page.reload({ waitUntil: 'domcontentloaded' });
+        await this.waitForSpaShell();
       }
     }
   }

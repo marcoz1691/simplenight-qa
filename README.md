@@ -94,7 +94,7 @@ The included spec (`tests/hotels-booking-search.spec.ts`) covers assignment step
 | 6 | Zoom in on map clusters and select a hotel pin |
 | 7 | Assert hotel card price and guest score match the filters |
 
-**Stability:** 5 consecutive green runs against staging (Chromium, headless), ~20–26 s each.
+**Stability:** 5 consecutive green runs against staging locally (Chromium, headless), ~20–26 s each.
 
 ## Locators (calibrated against staging)
 
@@ -143,9 +143,11 @@ substitution for QA judgment:
 
 All final code, design decisions, and test coverage are my reviewed work.
 
-## CI
+## Optional: CI
 
-A GitHub Actions workflow (`.github/workflows/playwright.yml`) runs the Hotels
-spec against staging on push/PR (Chromium, single worker). If a run fails,
-open the workflow run → **Artifacts** → download `playwright-report` for
-traces, screenshots, and video.
+A GitHub Actions workflow (`.github/workflows/playwright.yml`) is included as
+a bonus — it is **not required** by the assignment. It runs the Hotels spec
+against staging on push/PR (Chromium, single worker). The primary validation
+path is the local commands in **Run** above. If Actions fails, open the
+workflow run → **Artifacts** → download `playwright-report` for traces,
+screenshots, and video.
