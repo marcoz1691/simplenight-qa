@@ -38,8 +38,8 @@ const baseUrls: Record<Environment, string> = {
 export const config: AppConfig = {
   env: activeEnv,
   baseUrl: process.env.BASE_URL || baseUrls[activeEnv],
-  defaultTimeout: Number(process.env.DEFAULT_TIMEOUT) || 15_000,
-  navigationTimeout: Number(process.env.NAVIGATION_TIMEOUT) || 30_000,
+  defaultTimeout: Number(process.env.DEFAULT_TIMEOUT) || (process.env.CI ? 20_000 : 15_000),
+  navigationTimeout: Number(process.env.NAVIGATION_TIMEOUT) || (process.env.CI ? 45_000 : 30_000),
   headless: process.env.HEADLESS ? process.env.HEADLESS === 'true' : true,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
