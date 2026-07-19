@@ -1,0 +1,24 @@
+{
+  "name": "simplenight-qa-automation",
+  "version": "1.0.0",
+  "description": "Playwright + TypeScript automation framework for Simplenight booking flows",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:staging": "cross-env ENV=staging playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "test:hotels": "playwright test tests/hotels-booking-search.spec.ts",
+    "report": "playwright show-report",
+    "codegen": "playwright codegen https://wl.stg.simplenight.com/",
+    "install:browsers": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^22.7.0",
+    "cross-env": "^7.0.3",
+    "dotenv": "^16.4.5",
+    "typescript": "^5.6.2"
+  }
+}
