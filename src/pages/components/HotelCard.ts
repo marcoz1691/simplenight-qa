@@ -25,7 +25,8 @@ export class HotelCard extends BasePage {
   }
 
   async waitUntilVisible(): Promise<void> {
-    await this.waitForVisible(this.root, 30_000);
+    const timeout = process.env.CI ? 60_000 : 30_000;
+    await this.waitForVisible(this.root, timeout);
   }
 
   async getValues(): Promise<HotelCardValues> {

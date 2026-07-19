@@ -20,6 +20,25 @@ test.describe('Hotels booking search @staging', () => {
     const homePage = new HomePage(page);
     const resultsPage = new SearchResultsPage(page);
 
+    // Simplenight staging sits behind CloudFront/WAF that blocks GitHub Actions
+    // datacenter IPs (returns a 403 shell). Detect that with the real browser and
+    // skip in CI so the pipeline stays green; run locally for full coverage.
+    if (process.env.CI) {
+      await page.goto('/home/hotels', { waitUntil: 'domcontentloaded' }).catch(() => undefined);
+
+      const blockPage = page.getByText(/403 ERROR|Request blocked|could not be satisfied/i).first();
+      const appReady = page.getByTestId(/search-form_location_trigger/);
+
+      // Wait for whichever resolves first: the app hydrating or the WAF block page.
+      await expect(appReady.or(blockPage)).toBeVisible({ timeout: 45_000 }).catch(() => undefined);
+
+      const isBlocked = await blockPage.isVisible().catch(() => false);
+      test.skip(
+        isBlocked,
+        'Staging is not reachable from the GitHub Actions runner (CloudFront/WAF block) — run E2E locally (see README).',
+      );
+    }
+
     await test.step('Open homepage and select category', async () => {
       await homePage.open();
       await homePage.selectCategory(category);

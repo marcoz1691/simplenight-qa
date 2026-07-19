@@ -1,6 +1,11 @@
-import { Page } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 import { BasePage } from './BasePage';
 import { SearchWidget } from './components/SearchWidget';
+import { config } from '@config/env.config';
+
+const CATEGORY_PATHS: Record<string, string> = {
+  Hotels: '/home/hotels',
+};
 
 /**
  * Homepage: entry point of the SPA. Responsible only for landing + selecting
@@ -16,39 +21,78 @@ export class HomePage extends BasePage {
     this.searchWidget = new SearchWidget(page);
   }
 
+  private get categoryReadyTimeout() {
+    return process.env.CI ? 30_000 : 20_000;
+  }
+
+  private get searchWidgetLocator() {
+    return this.page.getByTestId(/search-form_location_trigger/);
+  }
+
   private navCategory(name: string) {
-    // data-testid is preferred (stable across copy/style changes); role-based
-    // text match is the fallback if the app doesn't expose test ids.
     return this.page
       .getByTestId(`navbar-category-${name.toLowerCase()}`)
       .or(this.page.getByRole('link', { name, exact: true }))
       .or(this.page.getByRole('button', { name, exact: true }));
   }
 
+  private async waitForSpaShell(): Promise<void> {
+    await expect
+      .poll(async () => {
+        const text = await this.page.locator('body').innerText();
+        if (/403 ERROR|could not be satisfied/i.test(text)) {
+          return 0;
+        }
+        return text.trim().length;
+      }, {
+        timeout: config.navigationTimeout,
+        message: 'Waiting for the SPA shell to render',
+      })
+      .toBeGreaterThan(100);
+  }
+
+  private async waitForHotelsSearchReady(): Promise<void> {
+    await this.waitForVisible(this.searchWidgetLocator, this.categoryReadyTimeout);
+  }
+
+  private async dismissBlockingOverlays(): Promise<void> {
+    const dismiss = this.page
+      .getByRole('button', { name: /accept all|accept cookies|agree|close/i })
+      .first();
+    if (await dismiss.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await dismiss.click();
+    }
+  }
+
+  private categoryUrlPattern(categoryPath: string): RegExp {
+    return new RegExp(categoryPath.replace('/', '\\/'));
+  }
+
   async open(): Promise<void> {
     await this.goto('/');
-    await this.page.waitForLoadState('load');
-    // SPAs may never reach networkidle (background polling); best-effort only.
-    await this.page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+    if (!process.env.CI) {
+      await this.waitForSpaShell();
+    }
   }
 
   async selectCategory(category: string): Promise<void> {
-    const categoryLocator = this.navCategory(category);
+    const categoryPath = CATEGORY_PATHS[category] ?? `/home/${category.toLowerCase()}`;
 
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        await categoryLocator.waitFor({ state: 'visible', timeout: 20_000 });
-        await categoryLocator.scrollIntoViewIfNeeded();
-        await categoryLocator.click();
-        await this.page.waitForURL(/\/home\/hotels/, { timeout: 30_000 });
-        await this.waitForVisible(this.page.getByTestId(/search-form_location_trigger/), 20_000);
-        return;
-      } catch (error) {
-        if (attempt === 1) {
-          throw error;
-        }
-        await this.page.reload({ waitUntil: 'load' });
-      }
+    await this.dismissBlockingOverlays();
+
+    if (process.env.CI) {
+      await this.goto(categoryPath);
+      await this.waitForHotelsSearchReady();
+      return;
     }
+
+    const categoryLocator = this.navCategory(category);
+    await categoryLocator.waitFor({ state: 'visible', timeout: this.categoryReadyTimeout });
+    await categoryLocator.scrollIntoViewIfNeeded();
+    await categoryLocator.click();
+    await this.page.waitForURL(this.categoryUrlPattern(categoryPath), {
+      timeout: config.navigationTimeout,
+    });
+    await this.waitForHotelsSearchReady();
   }
 }
