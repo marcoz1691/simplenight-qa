@@ -4,7 +4,7 @@ import { config } from './src/config/env.config';
 export default defineConfig({
   testDir: './tests',
   // Full E2E against staging can exceed 60s (search alone waits up to 90s).
-  timeout: 120_000,
+  timeout: process.env.CI ? 180_000 : 120_000,
   expect: {
     timeout: config.defaultTimeout,
   },

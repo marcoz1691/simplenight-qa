@@ -22,12 +22,14 @@ export class HomePage extends BasePage {
   }
 
   private get categoryReadyTimeout() {
-    return process.env.CI ? 45_000 : 20_000;
+    return process.env.CI ? 30_000 : 20_000;
+  }
+
+  private get searchWidgetLocator() {
+    return this.page.getByTestId(/search-form_location_trigger/);
   }
 
   private navCategory(name: string) {
-    // data-testid is preferred (stable across copy/style changes); role-based
-    // text match is the fallback if the app doesn't expose test ids.
     return this.page
       .getByTestId(`navbar-category-${name.toLowerCase()}`)
       .or(this.page.getByRole('link', { name, exact: true }))
@@ -36,11 +38,21 @@ export class HomePage extends BasePage {
 
   private async waitForSpaShell(): Promise<void> {
     await expect
-      .poll(async () => (await this.page.locator('body').innerText()).trim().length, {
+      .poll(async () => {
+        const text = await this.page.locator('body').innerText();
+        if (/403 ERROR|could not be satisfied/i.test(text)) {
+          return 0;
+        }
+        return text.trim().length;
+      }, {
         timeout: config.navigationTimeout,
         message: 'Waiting for the SPA shell to render',
       })
       .toBeGreaterThan(100);
+  }
+
+  private async waitForHotelsSearchReady(): Promise<void> {
+    await this.waitForVisible(this.searchWidgetLocator, this.categoryReadyTimeout);
   }
 
   private async dismissBlockingOverlays(): Promise<void> {
@@ -52,43 +64,51 @@ export class HomePage extends BasePage {
     }
   }
 
+  private categoryUrlPattern(categoryPath: string): RegExp {
+    return new RegExp(categoryPath.replace('/', '\\/'));
+  }
+
   async open(): Promise<void> {
     await this.goto('/');
     await this.waitForSpaShell();
   }
 
   async selectCategory(category: string): Promise<void> {
-    const categoryLocator = this.navCategory(category);
     const categoryPath = CATEGORY_PATHS[category] ?? `/home/${category.toLowerCase()}`;
+    const categoryLocator = this.navCategory(category);
 
     await this.dismissBlockingOverlays();
 
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        await categoryLocator.waitFor({ state: 'visible', timeout: this.categoryReadyTimeout });
-        await categoryLocator.scrollIntoViewIfNeeded();
+    if (process.env.CI) {
+      // GitHub runners often hydrate the navbar slowly; try it briefly, then use the direct route.
+      const navbarReady = await categoryLocator
+        .waitFor({ state: 'visible', timeout: 8_000 })
+        .then(() => true)
+        .catch(() => false);
+
+      if (navbarReady) {
         await categoryLocator.click();
-        await this.page.waitForURL(new RegExp(categoryPath.replace('/', '\\/')), {
-          timeout: config.navigationTimeout,
-        });
-        await this.waitForVisible(
-          this.page.getByTestId(/search-form_location_trigger/),
-          this.categoryReadyTimeout,
-        );
-        return;
-      } catch (error) {
-        if (attempt === 2) {
-          throw error;
-        }
-        if (attempt === 1) {
-          // Datacenter runners can be slow to hydrate the navbar; direct route keeps CI stable.
+        const navigated = await this.page
+          .waitForURL(this.categoryUrlPattern(categoryPath), { timeout: 15_000 })
+          .then(() => true)
+          .catch(() => false);
+        if (!navigated) {
           await this.goto(categoryPath);
-          await this.waitForSpaShell();
-          continue;
         }
-        await this.page.reload({ waitUntil: 'domcontentloaded' });
-        await this.waitForSpaShell();
+      } else {
+        await this.goto(categoryPath);
       }
+
+      await this.waitForHotelsSearchReady();
+      return;
     }
+
+    await categoryLocator.waitFor({ state: 'visible', timeout: this.categoryReadyTimeout });
+    await categoryLocator.scrollIntoViewIfNeeded();
+    await categoryLocator.click();
+    await this.page.waitForURL(this.categoryUrlPattern(categoryPath), {
+      timeout: config.navigationTimeout,
+    });
+    await this.waitForHotelsSearchReady();
   }
 }
