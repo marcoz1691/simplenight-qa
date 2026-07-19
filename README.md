@@ -123,20 +123,29 @@ If the UI changes, re-calibrate with `npm run codegen` and update the page objec
 
 ## Use of AI tools
 
-I used AI assistants (Claude, Cursor) to scaffold the framework from the
-assignment PDF and to calibrate locators against the live staging app. Quality
-was kept under control by:
+I used AI assistants (**Claude** and **Cursor**) as part of my workflow, as
+encouraged in the assignment. Their role was limited to acceleration — not
+substitution for QA judgment:
 
-- Type-checking the project (`npx tsc --noEmit`) after every change.
-- Running the Hotels spec repeatedly until green — **5/5 consecutive passes**
+| Area | How AI helped | What I owned |
+|------|---------------|--------------|
+| Framework setup | Suggested project layout, POM structure, and README outline from the PDF | Final architecture, naming, and file split (pages vs. components vs. data) |
+| Locators | Proposed candidate selectors while exploring the UI | Every locator validated against live staging via codegen, traces, screenshots, and real DOM inspection — speculative selectors were rejected until a green run |
+| Boilerplate | TypeScript/Playwright snippets for page objects | Assertions, guest-score thresholds, filter logic, and test flow design |
+
+**Quality controls applied throughout:**
+
+- Type-checking after every change (`npm run typecheck`).
+- Running the Hotels spec repeatedly until stable — **5/5 consecutive green runs**
   against staging before treating it as done.
-- Inspecting Playwright traces, screenshots, and the real DOM (not accepting
-  placeholder locators as verified).
-- Enforcing web-first waits only — **no fixed sleeps** in `src/` or `tests/`.
-- Hand-reviewing every page object and assertion before commit.
+- Web-first waits only — **no fixed sleeps** in `src/` or `tests/`.
+- Hand-reviewing every page object, locator, and assertion before commit.
+
+All final code, design decisions, and test coverage are my reviewed work.
 
 ## CI
 
-A minimal GitHub Actions workflow (`.github/workflows/playwright.yml`) runs
-the suite against staging on push/PR and uploads the HTML report as an
-artifact.
+A GitHub Actions workflow (`.github/workflows/playwright.yml`) runs the Hotels
+spec against staging on push/PR (Chromium, single worker). If a run fails,
+open the workflow run → **Artifacts** → download `playwright-report` for
+traces, screenshots, and video.

@@ -42,7 +42,7 @@ export const config: AppConfig = {
   navigationTimeout: Number(process.env.NAVIGATION_TIMEOUT) || 30_000,
   headless: process.env.HEADLESS ? process.env.HEADLESS === 'true' : true,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 2 : undefined,
+  workers: process.env.CI ? 1 : undefined,
 };
 
 export default config;

@@ -27,7 +27,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run tests
-        run: npx playwright test --project=chromium
+        run: npm run test:hotels -- --project=chromium --workers=1
 
       - name: Upload HTML report
         if: always()

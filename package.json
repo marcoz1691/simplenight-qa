@@ -12,7 +12,8 @@
     "test:hotels": "playwright test tests/hotels-booking-search.spec.ts",
     "report": "playwright show-report",
     "codegen": "playwright codegen https://wl.stg.simplenight.com/",
-    "install:browsers": "playwright install --with-deps chromium"
+    "install:browsers": "playwright install --with-deps chromium",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@playwright/test": "^1.48.0",
